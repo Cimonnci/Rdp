@@ -1,5 +1,4 @@
-
-name: Windows 2022
+name: HenWindows 2022 Full
 
 on: workflow_dispatch
 
@@ -11,27 +10,37 @@ jobs:
     steps:
     - name: Making the Core
       run: |
-        Invoke-WebRequest https://storage.curvee.eu.org/ngrok-windows-amd64-v3.zip -OutFile ngrok.zip
-        Invoke-WebRequest https://storage.curvee.eu.org/start-2022.bat -OutFile start.bat
-        Invoke-WebRequest https://storage.curvee.eu.org/wallpaper.png -OutFile wallpaper.png
-        Invoke-WebRequest https://storage.curvee.eu.org/wallpaper.bat -OutFile wallpaper.bat
-        Invoke-WebRequest https://storage.curvee.eu.org/loop.bat -OutFile loop.bat
-    - name: Extracting Ngrok File
-      run: Expand-Archive ngrok.zip
-    - name: Connect to Ngrok.
-      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
+        Invoke-WebRequest https://raw.githubusercontent.com/arifkembiri/RDP-Windows-2022-Tailscale/refs/heads/main/start.bat -OutFile start.bat
+        Invoke-WebRequest https://github.com/arifkembiri/RDP-Windows-2022-Tailscale/blob/main/wallpaper.png?raw=true -OutFile wallpaper.png
+        Invoke-WebRequest https://raw.githubusercontent.com/arifkembiri/RDP-Windows-2022-Tailscale/refs/heads/main/wallpaper.bat -OutFile wallpaper.bat
+        Invoke-WebRequest https://raw.githubusercontent.com/arifkembiri/RDP-Windows-2022-Tailscale/refs/heads/main/loop.bat -OutFile loop.bat
+    - name: Install Tailscale
+      run: |
+        Invoke-WebRequest -Uri https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe -OutFile tailscale-setup.exe
+        Start-Process tailscale-setup.exe -ArgumentList "/quiet", "/norestart" -Wait
+    - name: Add Tailscale to PATH
+      run: |
+        [System.Environment]::SetEnvironmentVariable('PATH', $env:PATH + ";C:\Program Files\Tailscale", [System.EnvironmentVariableTarget]::Machine)
+    - name: Verify Tailscale installation with full path
+      run: |
+        & "C:\Program Files\Tailscale\tailscale.exe" version || echo "Tailscale is not installed"
+    - name: Authenticate Tailscale with full path
+      run: |
+        & "C:\Program Files\Tailscale\tailscale.exe" up --authkey $Env:TAILSCALE_AUTHKEY
       env:
-        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-    - name: Enabling access to RDP
+        TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+    - name: Enable access to RDP
       run: | 
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
         copy wallpaper.png C:\Users\Public\Desktop\wallpaper.png
         copy wallpaper.bat C:\Users\Public\Desktop\wallpaper.bat
-    - name: Open Tunnel.
-      run: Start-Process Powershell -ArgumentList '-Noexit -Command ".\ngrok\ngrok.exe tcp --region ap 3389"'
-    - name: Connect to your RDP
+    - name: Get Tailscale IP and RDP Access
+      run: |
+        $tailscale_ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
+        echo "Tailscale IP: $tailscale_ip"
+    - name: Start RDP session
       run: cmd /c start.bat
     - name: Successfully made! You can close the tab now.
       run: cmd /c loop.bat
