@@ -1,0 +1,27 @@
+# .github/workflows/rdp-tailscale.yml
+name: RDP via Tailscale
+
+on:
+  workflow_dispatch:
+
+jobs:
+  connect-tailscale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Authenticate to Tailscale
+        run: |
+          sudo tailscale up --authkey ${{ secrets.TAILSCALE_AUTHKEY }} --hostname github-runner --ssh
+
+      - name: Show Tailscale IP
+        run: |
+          echo "Tailscale IP Address:"
+          tailscale ip -4
+
+      - name: Keep alive for 30 minutes
+        run: |
+          echo "Tailscale is running. Connect using SSH to the IP above."
+          sleep 1800
